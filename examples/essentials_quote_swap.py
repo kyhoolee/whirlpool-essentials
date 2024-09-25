@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from dotenv import load_dotenv
 from decimal import Decimal
 from solana.rpc.async_api import AsyncClient
@@ -13,13 +14,14 @@ from orca_whirlpool.quote import QuoteBuilder, SwapQuoteParams
 from orca_whirlpool.types import Percentage, SwapDirection, SpecifiedAmount, TickArrayReduction
 
 load_dotenv()
-RPC_ENDPOINT_URL = os.getenv("RPC_ENDPOINT_URL")
+RPC_ENDPOINT_URL = "https://api.mainnet-beta.solana.com"
+# os.getenv("RPC_ENDPOINT_URL")
 SAMO_USDC_WHIRLPOOL_PUBKEY = Pubkey.from_string("9vqYJjDUFecLL2xPUC4Rc7hyCtZ6iJ4mDiVZX7aFXoAe")
 
 
 async def main():
     # use dummy wallet
-    keypair = Keypair();
+    keypair = Keypair()
 
     # create Anchor client
     connection = AsyncClient(RPC_ENDPOINT_URL)
@@ -54,10 +56,28 @@ async def main():
         ctx.program_id,
         whirlpool_pubkey
     )
-    print("tickarrays", pubkeys)
+    print("tickarrays-pubkeys:: ", pubkeys)
 
     # get quote
+    
+
+    start_time = time.time()
+    start_block_height = await connection.get_block_height()
+    start_slot = await connection.get_slot()
+    
+    start = time.time()
     tick_arrays = await ctx.fetcher.list_tick_arrays(pubkeys)
+    print("tickarrays-data:: ", tick_arrays)
+    print("\n-----\nTickArray_Time: ", time.time() - start)
+    
+    end_slot = await connection.get_slot()
+    end_block_height = await connection.get_block_height()
+    print('\n-----\nALL_Time: ', time.time() - start_time) 
+    print(f' || start_slot: {start_slot} || end_slot: {end_slot}')
+    print(f' || start_block_height: {start_block_height} || end_block_height: {end_block_height}')
+
+
+    print("SwapQuoteParams:: ")
     quote = QuoteBuilder.swap(SwapQuoteParams(
         whirlpool=whirlpool,
         amount=amount,
