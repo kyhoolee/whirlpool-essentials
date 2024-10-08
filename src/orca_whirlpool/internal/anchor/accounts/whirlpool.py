@@ -77,6 +77,7 @@ class Whirlpool:
     fee_growth_global_b: int
     reward_last_updated_timestamp: int
     reward_infos: list[types.whirlpool_reward_info.WhirlpoolRewardInfo]
+    slot: typing.Optional[int] = None
 
     @classmethod
     async def fetch(
@@ -93,7 +94,10 @@ class Whirlpool:
         if info.owner != program_id:
             raise ValueError("Account does not belong to this program")
         bytes_data = info.data
-        return cls.decode(bytes_data)
+        pool = cls.decode(bytes_data)
+        pool.slot = resp.context.slot
+        print(f'>>> {address} {pool.slot}')
+        return pool
 
     @classmethod
     async def fetch_multiple(
@@ -111,7 +115,9 @@ class Whirlpool:
                 continue
             if info.account.owner != program_id:
                 raise ValueError("Account does not belong to this program")
-            res.append(cls.decode(info.account.data))
+            pool = cls.decode(info.account.data)
+            pool.slot = info.slot
+            res.append(pool)
         return res
 
     @classmethod

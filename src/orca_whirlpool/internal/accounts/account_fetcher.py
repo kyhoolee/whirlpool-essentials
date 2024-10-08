@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from solders.account import Account
 from solders.pubkey import Pubkey
 from solana.rpc.async_api import AsyncClient
@@ -6,7 +6,7 @@ from ..types.types import BlockTimestamp
 from .types import WhirlpoolsConfig, FeeTier, Whirlpool, TickArray, Position, PositionBundle, MintInfo, AccountInfo
 from .account_parser import AccountParser
 from .keyed_account_converter import KeyedAccountConverter
-
+from dataclasses import replace
 
 BULK_FETCH_CHUNK_SIZE = 100
 
@@ -22,23 +22,33 @@ class AccountFetcher:
         if not refresh and key in self._cache:
             return self._cache[key]
 
-        res = await self._connection.get_account_info(pubkey)
+        res = await self._connection.get_account_info(pubkey, commitment="processed")
         if res.value is None:
             return None
 
         parsed = parser(res.value.data)
+        # print(f'\n>>> PARSED {pubkey} {parsed}\n')
         if parsed is None:
             return None
         keyed = keyed_converter(pubkey, parsed)
 
-        self._cache[key] = keyed
-        return keyed
+        # print(f'\n>>> KEYED {pubkey} {keyed}\n')
+
+        # keyed.slot = res.context.slot
+        # Assuming `keyed` is a frozen dataclass object, recreate it with the new 'slot' value
+        new_keyed = keyed
+        if hasattr(keyed, 'slot'):
+            new_keyed = replace(keyed, slot=res.context.slot)
+        
+
+        self._cache[key] = new_keyed
+        return new_keyed
 
     async def _list(self, pubkeys: List[Pubkey], parser, keyed_converter, refresh: bool):
         fetch_needed = list(filter(lambda p: refresh or str(p) not in self._cache, pubkeys))
 
         if len(fetch_needed) > 0:
-            fetched = await self._bulk_fetch(fetch_needed)
+            fetched, slots = await self._bulk_fetch(fetch_needed)
             for i in range(len(fetch_needed)):
                 if fetched[i] is None:
                     continue
@@ -46,17 +56,26 @@ class AccountFetcher:
                 if parsed is None:
                     continue
                 keyed = keyed_converter(fetch_needed[i], parsed)
-                self._cache[str(fetch_needed[i])] = keyed
+
+                new_keyed = keyed
+
+                if hasattr(keyed, 'slot'):
+                    new_keyed = replace(keyed, slot=slots[i])
+
+                self._cache[str(fetch_needed[i])] = new_keyed
 
         return list(map(lambda p: self._cache.get(str(p)), pubkeys))
 
-    async def _bulk_fetch(self, pubkeys: List[Pubkey]) -> List[Optional[Account]]:
+    async def _bulk_fetch(self, pubkeys: List[Pubkey]) -> Tuple[List[Optional[Account]], List[int]]:
         accounts = []
+        slots = []
         for i in range(0, len(pubkeys), BULK_FETCH_CHUNK_SIZE):
             chunk = pubkeys[i:(i+BULK_FETCH_CHUNK_SIZE)]
-            fetched = await self._connection.get_multiple_accounts(chunk)
+            fetched = await self._connection.get_multiple_accounts(chunk, commitment="processed")
+            slot = fetched.context.slot
             accounts.extend(fetched.value)
-        return accounts
+            slots.extend([slot] * len(chunk))
+        return accounts, slots
 
     async def get_whirlpool(self, pubkey: Pubkey, refresh: bool = False) -> Optional[Whirlpool]:
         return await self._get(pubkey, AccountParser.parse_whirlpool, KeyedAccountConverter.to_keyed_whirlpool, refresh)

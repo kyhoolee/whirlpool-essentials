@@ -73,6 +73,7 @@ class KeyedAccountConverter:
             fee_growth_global_b=account.fee_growth_global_b,
             reward_last_updated_timestamp=account.reward_last_updated_timestamp,
             reward_infos=account.reward_infos,
+            slot=account.slot,
         )
 
     @staticmethod

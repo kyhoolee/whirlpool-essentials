@@ -6,7 +6,8 @@ from .internal.accounts.types import (
     TickArray,
     AccountInfo,
     MintInfo,
-    PositionBundle
+    PositionBundle, 
+    Tick
 )
 from .internal.accounts.account_fetcher import AccountFetcher
 from .internal.accounts.account_parser import AccountParser

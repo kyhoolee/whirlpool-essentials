@@ -49,6 +49,7 @@ class Whirlpool:
     fee_growth_global_b: int
     reward_last_updated_timestamp: int
     reward_infos: list[WhirlpoolRewardInfo]
+    slot: Optional[int] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -59,6 +60,7 @@ class TickArray:
     start_tick_index: int
     ticks: list[Tick]
     whirlpool: Pubkey
+    slot: Optional[int] = None
 
 
 @dataclasses.dataclass(frozen=True)
